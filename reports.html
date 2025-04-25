@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Submit Report</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    h2 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .btn {
+      padding: 12px 25px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.2s;
+    }
+
+    .btn:hover {
+      background-color: #2980b9;
+    }
+
+    #status {
+      margin-top: 20px;
+      background-color: #f9f9f9;
+      border-left: 4px solid #3498db;
+      padding: 15px;
+      display: none;
+      text-align: left;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .error {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+
+    .success {
+      color: #2ecc71;
+      font-weight: bold;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .loading-spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .severe {
+        color: #e74c3c;
+        font-weight: bold;
+      }
+      
+      .moderate {
+        color: #f39c12;
+        font-weight: bold;
+      }
+      
+      .mild {
+        color: #27ae60;
+        font-weight: bold;
+      }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Submit Your Report</h2>
+    <button class="btn" onclick="triggerFileUpload()">📎 Click to Submit Report</button>
+    <!-- <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.pdf,.docx" onchange="uploadFiles()" /> -->
+    <input type="file" id="fileInput" name="image" accept=".jpg,.jpeg,.png" onchange="uploadFiles()" />
+
+    <div class="loading" id="loadingIndicator">
+      <div class="loading-spinner"></div>
+      <p>Uploading your files...</p>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    function triggerFileUpload() {
+      document.getElementById('fileInput').click();
+    }
+
+    function uploadFiles() {
+  const input = document.getElementById('fileInput');
+  const files = input.files;
+  const status = document.getElementById('status');
+  const loading = document.getElementById('loadingIndicator');
+
+  status.style.display = 'none';
+
+  if (files.length === 0) return;
+
+  const formData = new FormData();
+  formData.append('image', files[0]);  // Send just the first file
+
+  loading.style.display = 'block';
+
+  fetch('/extract-text', {
+    method: 'POST',
+    body: formData
+  })
+      .then(res => res.json())
+  .then(data => {
+    loading.style.display = 'none';
+    status.style.display = 'block';
+
+    if (data.result) {
+      let formattedResult = data.result
+        .replace(/Urgency level: Severe/g, 'Urgency level: <span class="severe">Severe</span>')
+        .replace(/Urgency level: Moderate/g, 'Urgency level: <span class="moderate">Moderate</span>')
+        .replace(/Urgency level: Mild/g, 'Urgency level: <span class="mild">Mild</span>');
+
+      status.innerHTML = formattedResult;
+    } else {
+      status.innerHTML = '<span class="error">Error: ' + (data.error || 'Unknown error occurred') + '</span>';
+    }
+  })
+  .catch(err => {
+    loading.style.display = 'none';
+    status.style.display = 'block';
+    status.innerHTML = '<span class="error">Network error: ' + err.message + '</span>';
+  });
+    }
+  </script>
+</body>
+</html>

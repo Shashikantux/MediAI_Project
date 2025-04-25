@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediAI - Find Medical Facilities</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f7fa;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    h2 {
+      color: #3498db;
+      margin-top: 25px;
+    }
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      padding: 25px;
+      margin-bottom: 30px;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.2s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    .facility-type-btn {
+      background-color: #ecf0f1;
+      color: #2c3e50;
+      border: 1px solid #ddd;
+    }
+    .facility-type-btn.active {
+      background-color: #3498db;
+      color: white;
+    }
+    .facility-type-btn:hover {
+      background-color: #ddd;
+    }
+    #map {
+      height: 400px;
+      width: 100%;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    .facilities-list {
+      max-height: 500px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 20px;
+    }
+    .facility-card {
+      border-bottom: 1px solid #eee;
+      padding: 15px 10px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .facility-card:hover {
+      background-color: #f0f7fd;
+    }
+    .facility-card:last-child {
+      border-bottom: none;
+    }
+    .facility-name {
+      font-weight: bold;
+      font-size: 18px;
+      color: #2c3e50;
+    }
+    .facility-address {
+      color: #7f8c8d;
+      margin: 5px 0;
+    }
+    .facility-distance {
+      color: #3498db;
+      font-weight: bold;
+    }
+    .facility-phone {
+      margin-top: 5px;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .loading-spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .nav-buttons {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .error-message {
+      color: #e74c3c;
+      text-align: center;
+      padding: 15px;
+      display: none;
+    }
+    .disclaimer {
+      font-size: 14px;
+      color: #7f8c8d;
+      margin-top: 30px;
+      border-top: 1px solid #ddd;
+      padding-top: 15px;
+    }
+    .debug-info {
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Find Medical Facilities Near You</h1>
+    
+    <div class="nav-buttons">
+      <button onclick="window.location.href='/'">Back to Symptom Checker</button>
+      <button onclick="window.location.href='/bmi-calculator'">BMI Calculator</button>
+    </div>
+
+    <div id="location-permission">
+      <p>Please allow location access to find medical facilities near you:</p>
+      <button id="get-location-btn" onclick="getLocation()">Find Facilities Near Me</button>
+    </div>
+
+    <div id="facility-types" style="display: none;">
+      <h2>Select Facility Type</h2>
+      <div>
+        <button class="facility-type-btn active" id="hospital-btn" onclick="changeFacilityType('hospital')">Hospitals</button>
+        <button class="facility-type-btn" id="doctor-btn" onclick="changeFacilityType('doctor')">Doctors</button>
+        <button class="facility-type-btn" id="pharmacy-btn" onclick="changeFacilityType('pharmacy')">Pharmacies</button>
+      </div>
+    </div>
+
+    <div id="error-message" class="error-message"></div>
+
+    <div id="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <p>Searching for nearby facilities...</p>
+    </div>
+
+    <div id="results" style="display: none;">
+      <div id="map"></div>
+      
+      <h2>Nearby Facilities</h2>
+      <div id="facilities-list" class="facilities-list">
+        <!-- Results will be loaded here -->
+      </div>
+    </div>
+
+    <div id="debug-info" class="debug-info">
+      <!-- Debug information will appear here if needed -->
+    </div>
+
+    <div class="disclaimer">
+      <p><strong>Important:</strong> This tool uses location data to find nearby medical facilities. The information provided is for convenience and not a recommendation of quality or services available at these locations. Always verify information directly with the facility.</p>
+    </div>
+  </div>
+
+  <script>
+    let map;
+    let userMarker;
+    let facilitiesMarkers = [];
+    let currentLat;
+    let currentLng;
+    let currentFacilityType = 'hospital';
+    let mapInitialized = false;
+
+    // Helper function to show debug information during development
+    function debugLog(message, data) {
+      console.log(message, data);
+      const debugElement = document.getElementById('debug-info');
+      
+      // Uncomment to show debug info on page
+      // debugElement.style.display = 'block';
+      // let content = debugElement.innerHTML;
+      // content += `<div>${message}: ${JSON.stringify(data)}</div>`;
+      // debugElement.innerHTML = content;
+    }
+
+    function getLocation() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('error-message').style.display = 'none';
+      
+      if (navigator.geolocation) {
+        debugLog("Requesting geolocation", {});
+        navigator.geolocation.getCurrentPosition(showPosition, showError, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        });
+      } else {
+        showErrorMessage("Geolocation is not supported by this browser.");
+      }
+    }
+
+    function showPosition(position) {
+      debugLog("Got position", {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      });
+      
+      currentLat = position.coords.latitude;
+      currentLng = position.coords.longitude;
+      
+      document.getElementById('facility-types').style.display = 'block';
+      
+      // Initialize the map
+      initMap(currentLat, currentLng);
+      
+      // Search for facilities
+      searchNearbyFacilities();
+    }
+
+    function showError(error) {
+      let errorMessage;
+      
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = "You denied the request for geolocation. Please enable location access in your browser settings to use this feature.";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = "Location information is unavailable. Please try again later.";
+          break;
+        case error.TIMEOUT:
+          errorMessage = "The request to get user location timed out. Please try again.";
+          break;
+        case error.UNKNOWN_ERROR:
+          errorMessage = "An unknown error occurred while trying to get your location.";
+          break;
+      }
+      
+      debugLog("Geolocation error", { code: error.code, message: errorMessage });
+      showErrorMessage(errorMessage);
+    }
+
+    function showErrorMessage(message) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error-message').innerHTML = message;
+      document.getElementById('error-message').style.display = 'block';
+    }
+
+    function loadLeafletCSS() {
+      return new Promise((resolve) => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
+        link.integrity = 'sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==';
+        link.crossOrigin = '';
+        link.onload = () => {
+          debugLog("Leaflet CSS loaded", {});
+          resolve();
+        };
+        document.head.appendChild(link);
+      });
+    }
+    
+    function loadLeafletJS() {
+      return new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.js';
+        script.integrity = 'sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==';
+        script.crossOrigin = '';
+        script.onload = () => {
+          debugLog("Leaflet JS loaded", {});
+          resolve();
+        };
+        document.head.appendChild(script);
+      });
+    }
+
+    async function initMap(lat, lng) {
+      try {
+        debugLog("Initializing map at", { lat, lng });
+        
+        // Load Leaflet CSS and JS if not already loaded
+        if (typeof L === 'undefined') {
+          await loadLeafletCSS();
+          await loadLeafletJS();
+        }
+        
+        setTimeout(() => {
+          try {
+            if (!mapInitialized) {
+              debugLog("Creating map", {});
+              map = L.map('map').setView([lat, lng], 13);
+              mapInitialized = true;
+              
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 18
+              }).addTo(map);
+              
+              // Add user marker
+              userMarker = L.marker([lat, lng])
+                .addTo(map)
+                .bindPopup("Your Location")
+                .openPopup();
+                
+              debugLog("Map initialized successfully", {});
+            } else {
+              // If map already exists, just update the view
+              map.setView([lat, lng], 13);
+              if (userMarker) {
+                userMarker.setLatLng([lat, lng]);
+              }
+              debugLog("Map view updated", {});
+            }
+            
+            document.getElementById('results').style.display = 'block';
+          } catch(e) {
+            debugLog("Map initialization error", { error: e.toString() });
+            showErrorMessage("Error initializing map. Please refresh the page and try again.");
+          }
+        }, 300);
+      } catch(e) {
+        debugLog("Error in map initialization process", { error: e.toString() });
+        showErrorMessage("Failed to load map resources. Please check your internet connection and try again.");
+      }
+    }
+
+    function searchNearbyFacilities() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('facilities-list').innerHTML = '';
+      document.getElementById('error-message').style.display = 'none';
+      
+      // Clear previous markers
+      if (map && facilitiesMarkers.length > 0) {
+        facilitiesMarkers.forEach(marker => map.removeLayer(marker));
+        facilitiesMarkers = [];
+      }
+      
+      debugLog("Searching for facilities", { 
+        lat: currentLat, 
+        lng: currentLng, 
+        type: currentFacilityType 
+      });
+      
+      // Make API request to backend
+      fetch(`/nearby-facilities?lat=${currentLat}&lng=${currentLng}&type=${currentFacilityType}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Server responded with status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          document.getElementById('loading').style.display = 'none';
+          
+          debugLog("API response", data);
+          
+          if (data.error) {
+            showErrorMessage(data.error);
+            return;
+          }
+          
+          if (!data.facilities || data.facilities.length === 0) {
+            document.getElementById('facilities-list').innerHTML = '<p>No facilities found nearby. Try expanding your search or selecting a different facility type.</p>';
+            return;
+          }
+          
+          displayFacilities(data.facilities);
+        })
+        .catch(error => {
+          document.getElementById('loading').style.display = 'none';
+          debugLog("API Error", { message: error.toString() });
+          showErrorMessage("Failed to fetch nearby facilities. Please try again later.");
+        });
+    }
+
+    function displayFacilities(facilities) {
+      const listElement = document.getElementById('facilities-list');
+      listElement.innerHTML = '';
+      
+      debugLog("Displaying facilities", { count: facilities.length });
+      
+      // Sort facilities by distance
+      facilities.sort((a, b) => a.distance - b.distance);
+      
+      facilities.forEach(facility => {
+        // Create facility card
+        const card = document.createElement('div');
+        card.className = 'facility-card';
+        
+        card.innerHTML = `
+          <div class="facility-name">${facility.name}</div>
+          <div class="facility-address">${facility.address}</div>
+          <div class="facility-distance">${facility.distance} km away</div>
+          ${facility.phone && facility.phone !== 'N/A' ? 
+            `<div class="facility-phone">📞 <a href="tel:${facility.phone}">${facility.phone}</a></div>` : 
+            ''}
+        `;
+        
+        card.addEventListener('click', () => {
+          // Center map on this facility when clicked
+          if (map) {
+            map.setView([facility.lat, facility.lng], 16);
+            
+            // Find the marker for this facility and open its popup
+            facilitiesMarkers.forEach(marker => {
+              if (marker._facilityId === facility.name) {
+                marker.openPopup();
+              }
+            });
+          }
+        });
+        
+        listElement.appendChild(card);
+        
+        // Add marker to map
+        if (map) {
+          try {
+            const marker = L.marker([facility.lat, facility.lng])
+              .addTo(map)
+              .bindPopup(`
+                <strong>${facility.name}</strong><br>
+                ${facility.address}<br>
+                <strong>${facility.distance} km</strong> from your location
+                ${facility.phone && facility.phone !== 'N/A' ? `<br>📞 ${facility.phone}` : ''}
+              `);
+            
+            // Store facility name to identify marker later
+            marker._facilityId = facility.name;
+            
+            facilitiesMarkers.push(marker);
+          } catch(e) {
+            debugLog("Error adding marker", { 
+              error: e.toString(),
+              facility: facility
+            });
+          }
+        }
+      });
+      
+      debugLog("Added markers", { count: facilitiesMarkers.length });
+      
+      // Make sure all markers are visible on the map
+      if (map && facilitiesMarkers.length > 0) {
+        try {
+          const group = new L.featureGroup(facilitiesMarkers.concat([userMarker]));
+          map.fitBounds(group.getBounds().pad(0.1));
+        } catch(e) {
+          debugLog("Error fitting bounds", { error: e.toString() });
+        }
+      }
+    }
+
+    function changeFacilityType(type) {
+      // Update active button
+      document.querySelectorAll('.facility-type-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById(`${type}-btn`).classList.add('active');
+      
+      // Update current type
+      currentFacilityType = type;
+      
+      // Search for facilities with new type
+      searchNearbyFacilities();
+    }
+  </script>
+</body>
+</html>

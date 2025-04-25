@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediAI - Error</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f7fa;
+    }
+    h1 {
+      color: #e74c3c;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      padding: 25px;
+      margin-bottom: 30px;
+    }
+    .error-message {
+      background-color: #fdf3f2;
+      border-left: 4px solid #e74c3c;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      text-decoration: none;
+      text-align: center;
+      transition: background-color 0.2s;
+    }
+    .btn:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Oops! Something went wrong</h1>
+    
+    <div class="error-message">
+      <p>{{ message }}</p>
+    </div>
+    
+    <p>Please try again later or contact support if the problem persists.</p>
+    
+    <div style="text-align: center; margin-top: 30px;">
+      <a href="/" class="btn">Return to Home</a>
+    </div>
+  </div>
+</body>
+</html>
